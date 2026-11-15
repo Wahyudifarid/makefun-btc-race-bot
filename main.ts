@@ -11,6 +11,8 @@
 //     - take profit at +200 bps over the fill price, or
 //     - trailing stop 80 bps below the highest close since entry, or
 //     - max hold 90 bars.
+//   Chase guard: burst / momentum entries are skipped when the 5-bar
+//   return is above +400 bps (a vertical blow-off top, not a burst).
 //   No new entries in the last 30 bars (a late fill would be flattened at the
 //   last close with no time to move).
 //
@@ -52,6 +54,10 @@ const TRAIL_BPS = 80;
 const TP_BPS = 200;
 /** Max bars to hold a position. */
 const MAX_HOLD = 90;
+/** Do not chase a vertical move: a 5-bar return above this (bps) is a
+ *  blow-off top, not a burst worth following. Applies to the burst and
+ *  momentum entries only; V-bounce / recovery are turns off a drop. */
+const CHASE_CAP_BPS = 400;
 /** No new entries once this batch seq is reached (1440-bar window). */
 const NO_ENTRY_AFTER_SEQ = 1410;
 /** Wide open: the modelled fill can never move 100% in a minute. */
@@ -126,8 +132,8 @@ await runBars({
     const r15 = retBps(15);
     const r30 = retBps(30);
     const r60 = retBps(60);
-    const burst = r5 !== null && r5 > BURST_BPS;
-    const momentum = r15 !== null && r15 > MOM15_BPS;
+    const burst = r5 !== null && r5 > BURST_BPS && r5 < CHASE_CAP_BPS;
+    const momentum = r15 !== null && r15 > MOM15_BPS && r5 !== null && r5 < CHASE_CAP_BPS;
     const vBounce = r60 !== null && r60 < V_DROP_BPS && r5 !== null && r5 > V_TURN_BPS;
     const recovery = r30 !== null && r30 < R_DROP_BPS && r5 !== null && r5 > R_TURN_BPS;
     if (burst || momentum || vBounce || recovery) {
